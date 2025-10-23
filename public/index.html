@@ -1,0 +1,85 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Orientation Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    body {font-family: system-ui, sans-serif; margin:0; display:grid; grid-template-columns: 2fr 1fr; height:100vh;}
+    #map { height:100vh; }
+    #side { padding:12px; overflow:auto; }
+    .pill { display:inline-block; padding:2px 8px; border-radius:999px; background:#eee; margin-left:6px;}
+    table { width:100%; border-collapse: collapse; margin-top:12px;}
+    th,td { border-bottom:1px solid #eee; text-align:left; padding:6px 4px;}
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="side">
+    <h2>Orientation Snapshot</h2>
+    <canvas id="rose" width="400" height="300"></canvas>
+    <div id="summary"></div>
+    <table id="tbl"><thead><tr>
+      <th>Address</th><th>Sold</th><th>Facing</th><th>Solar</th><th>Conf</th>
+    </tr></thead><tbody></tbody></table>
+  </div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+(async function(){
+  const res = await fetch('/api/data'); 
+  const data = await res.json();
+
+  const center = data.length ? [data[0].lat, data[0].lon] : [-37.8136,144.9631];
+  const map = L.map('map').setView(center, 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ attribution: '&copy; OSM' }).addTo(map);
+
+  const colors = { HIGH:'#2e7d32', MED:'#f9a825', LOW:'#c62828' };
+
+  data.forEach(d=>{
+    const m = L.circleMarker([d.lat, d.lon], { radius:6, color: colors[d.confidence] }).addTo(map);
+    m.bindPopup(`<b>${(d.address||d.place_name||'Property').replace(/, Australia$/,'')}</b><br>
+      Faces <b>${d.orientation_cardinal}</b> (${Math.round(d.orientation_deg)}&deg;)<br>
+      Solar score: <b>${d.solar_score}</b><br>
+      Sold: ${d.soldDate || ''}<br>
+      Confidence: ${d.confidence}`);
+  });
+
+  const bins = new Array(16).fill(0);
+  data.forEach(d=>{
+    const idx = Math.round(( ( (d.orientation_deg%360)+360)%360 )/22.5) % 16;
+    bins[idx]++;
+  });
+  const labels = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  new Chart(document.getElementById('rose'), {
+    type: 'polarArea',
+    data: { labels, datasets: [{ data: bins }]},
+    options: { scales: { r: { ticks: { stepSize: 1 } }}, plugins: { legend: { position: 'bottom' } } }
+  });
+
+  const northish = data.filter(d => {
+    const rear = (d.orientation_deg + 180) % 360;
+    const dist = Math.min(Math.abs(rear-0), 360-Math.abs(rear-0));
+    return dist <= 22.5;
+  }).length;
+  document.getElementById('summary').innerHTML =
+    data.length ? `<p><b>${Math.round((northish/(data.length||1))*100)}%</b> likely have <b>north-facing rears</b> (±22.5°).</p>`
+                : `<p><b>No properties to display.</b><br>Check OUTPUT_CSV and run 'npm run ingest'.</p>`;
+
+  const tbody = document.querySelector('#tbl tbody');
+  data.slice(0,300).forEach(d=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${(d.address||'').replace(/, Australia$/,'')}</td>
+      <td>${d.soldDate||''}</td>
+      <td>${d.orientation_cardinal} (${Math.round(d.orientation_deg)}°)</td>
+      <td>${d.solar_score}<span class="pill">${d.confidence}</span></td>
+      <td>${d.confidence}</td>`;
+    tbody.appendChild(tr);
+  });
+})();
+</script>
+</body>
+</html>
