@@ -1,7 +1,7 @@
 
 # AU Property Orientation Dashboard
 
-I wrote this for a dodgy business "Microburbs" who posed it as a "Technical Interview", but they were just ripping off local devs for free work, so I have opened it up so you can all see what they are doing.
+I wrote this for a bloke "Luke Metcalfe" representing a dodgy business "Microburbs" who posed it as a "Technical Interview", but they were just ripping off local devs for free work, so I have opened it up so you can all see what they are doing.
 
 This project scrapes or ingests **Australian property sales data** (from CSV or scraped results), enriches it with **Mapbox geocoding** and **OpenStreetMap orientation context**, and visualizes results in a browser-based dashboard.
 
